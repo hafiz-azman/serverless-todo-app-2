@@ -6,17 +6,19 @@ import {
   Button,
   Checkbox,
   Divider,
+  Dimmer,
   Grid,
-  Header,
   Icon,
   Input,
   Image,
-  Loader
+  Loader,
+  Modal
 } from 'semantic-ui-react'
 
 import { createTodo, deleteTodo, getTodos, patchTodo } from '../api/todos-api'
 import Auth from '../auth/Auth'
 import { Todo } from '../types/Todo'
+import { EditTodo } from './EditTodo'
 
 interface TodosProps {
   auth: Auth
@@ -25,14 +27,18 @@ interface TodosProps {
 
 interface TodosState {
   todos: Todo[]
+  addImageModalOpen: boolean
   newTodoName: string
+  addingTodo: boolean
   loadingTodos: boolean
 }
 
 export class Todos extends React.PureComponent<TodosProps, TodosState> {
   state: TodosState = {
     todos: [],
+    addImageModalOpen: false,
     newTodoName: '',
+    addingTodo: false,
     loadingTodos: true
   }
 
@@ -40,58 +46,91 @@ export class Todos extends React.PureComponent<TodosProps, TodosState> {
     this.setState({ newTodoName: event.target.value })
   }
 
-  onEditButtonClick = (todoId: string) => {
-    this.props.history.push(`/todos/${todoId}/edit`)
-  }
-
   onTodoCreate = async (event: React.ChangeEvent<HTMLButtonElement>) => {
     try {
+      this.setState({ addingTodo: true })
+
       const dueDate = this.calculateDueDate()
       const newTodo = await createTodo(this.props.auth.getIdToken(), {
         name: this.state.newTodoName,
         dueDate
       })
+
       this.setState({
+        addingTodo: false,
         todos: [...this.state.todos, newTodo],
         newTodoName: ''
       })
     } catch {
+      this.setState({ addingTodo: false })
       alert('Todo creation failed')
     }
   }
 
   onTodoDelete = async (todoId: string) => {
+    const prevTodo = this.state.todos
+
+    // set state first to remove delay without setting loading state
+    this.setState({
+      todos: this.state.todos.filter(todo => todo.todoId != todoId)
+    })
+
     try {
       await deleteTodo(this.props.auth.getIdToken(), todoId)
-      this.setState({
-        todos: this.state.todos.filter(todo => todo.todoId != todoId)
-      })
     } catch {
+      // revert back state on error
+      this.setState({
+        todos: prevTodo
+      })
+
       alert('Todo deletion failed')
     }
   }
 
   onTodoCheck = async (pos: number) => {
+    const todo = this.state.todos[pos]
+
+    // set state first to remove delay without setting loading state
+    this.setState({
+      todos: update(this.state.todos, {
+        [pos]: { done: { $set: !todo.done } }
+      })
+    })
+
     try {
-      const todo = this.state.todos[pos]
       await patchTodo(this.props.auth.getIdToken(), todo.todoId, {
         name: todo.name,
         dueDate: todo.dueDate,
         done: !todo.done
       })
+    } catch {
+      // revert back state on error
       this.setState({
         todos: update(this.state.todos, {
-          [pos]: { done: { $set: !todo.done } }
+          [pos]: { done: { $set: todo.done } }
         })
       })
-    } catch {
+
       alert('Todo deletion failed')
     }
+  }
+
+  isImageExist = (imageUrl: string | undefined) => {
+    if (!imageUrl)
+      return false
+
+    const http = new XMLHttpRequest()
+
+    http.open('HEAD', imageUrl, false)
+    http.send()
+
+    return http.status == 200;
   }
 
   async componentDidMount() {
     try {
       const todos = await getTodos(this.props.auth.getIdToken())
+
       this.setState({
         todos,
         loadingTodos: false
@@ -101,14 +140,45 @@ export class Todos extends React.PureComponent<TodosProps, TodosState> {
     }
   }
 
+  triggerAddImageModal = (action: boolean) => {
+    this.setState({ addImageModalOpen: action})
+  }
+
+  renderAddImageModal = (todoId: string) => {
+    return (
+      <Modal trigger={
+        <Button
+          icon
+          color="blue"
+          onClick={() => this.triggerAddImageModal(true)}
+        >
+          <Icon name="camera" />
+        </Button>
+      } closeIcon open={this.state.addImageModalOpen} onClose={() => this.triggerAddImageModal(false)}>
+        <Modal.Content>
+          <EditTodo
+            todoId={todoId}
+            auth={this.props.auth}
+            history={this.props.history}
+            closeAddImageModal={() => this.triggerAddImageModal(false)}
+          />
+        </Modal.Content>
+      </Modal>
+    )
+  }
+
   render() {
     return (
       <div>
-        <Header as="h1">TODOs</Header>
+        <div style={{ marginTop: 50 }}>
+          <h3>Add Todo</h3>
+          {this.renderCreateTodoInput()}
+        </div>
 
-        {this.renderCreateTodoInput()}
-
-        {this.renderTodos()}
+        <div style={{ marginTop: 50 }}>
+          <h3>Your ToDos</h3>
+          {this.renderTodos()}
+        </div>
       </div>
     )
   }
@@ -120,19 +190,15 @@ export class Todos extends React.PureComponent<TodosProps, TodosState> {
           <Input
             action={{
               color: 'teal',
-              labelPosition: 'left',
               icon: 'add',
-              content: 'New task',
+              loading: this.state.addingTodo,
               onClick: this.onTodoCreate
             }}
             fluid
-            actionPosition="left"
-            placeholder="To change the world..."
+            placeholder="To heal the world ~"
+            value={this.state.newTodoName}
             onChange={this.handleNameChange}
           />
-        </Grid.Column>
-        <Grid.Column width={16}>
-          <Divider />
         </Grid.Column>
       </Grid.Row>
     )
@@ -157,8 +223,26 @@ export class Todos extends React.PureComponent<TodosProps, TodosState> {
   }
 
   renderTodosList() {
+    if (this.state.todos.length < 1) {
+      return <Grid padded>
+        <Grid.Row>
+          <Grid.Column>
+            You don't have any ToDo.
+          </Grid.Column>
+        </Grid.Row>
+      </Grid>
+    }
+
     return (
       <Grid padded>
+        <Grid.Row>
+          <Grid.Column width={1} verticalAlign="middle">
+            <strong>Done</strong>
+          </Grid.Column>
+          <Grid.Column width={10} verticalAlign="middle">
+            <strong>Item</strong>
+          </Grid.Column>
+        </Grid.Row>
         {this.state.todos.map((todo, pos) => {
           return (
             <Grid.Row key={todo.todoId}>
@@ -171,19 +255,8 @@ export class Todos extends React.PureComponent<TodosProps, TodosState> {
               <Grid.Column width={10} verticalAlign="middle">
                 {todo.name}
               </Grid.Column>
-              <Grid.Column width={3} floated="right">
-                {todo.dueDate}
-              </Grid.Column>
-              <Grid.Column width={1} floated="right">
-                <Button
-                  icon
-                  color="blue"
-                  onClick={() => this.onEditButtonClick(todo.todoId)}
-                >
-                  <Icon name="pencil" />
-                </Button>
-              </Grid.Column>
-              <Grid.Column width={1} floated="right">
+              <Grid.Column width={2} verticalAlign="middle" textAlign="right" floated="right">
+                {this.renderAddImageModal(todo.todoId)}
                 <Button
                   icon
                   color="red"
@@ -192,8 +265,10 @@ export class Todos extends React.PureComponent<TodosProps, TodosState> {
                   <Icon name="delete" />
                 </Button>
               </Grid.Column>
-              {todo.attachmentUrl && (
-                <Image src={todo.attachmentUrl} size="small" wrapped />
+              {this.isImageExist(todo.attachmentUrl) && (
+                <Grid.Column width={16} verticalAlign="middle">
+                    <Image src={todo.attachmentUrl} />
+                </Grid.Column>
               )}
               <Grid.Column width={16}>
                 <Divider />

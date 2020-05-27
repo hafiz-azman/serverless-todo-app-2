@@ -1,6 +1,6 @@
 import React, { Component } from 'react'
 import { Link, Route, Router, Switch } from 'react-router-dom'
-import { Grid, Menu, Segment } from 'semantic-ui-react'
+import { Button, Grid, Icon, Menu, Segment } from 'semantic-ui-react'
 
 import Auth from './auth/Auth'
 import { EditTodo } from './components/EditTodo'
@@ -40,8 +40,14 @@ export default class App extends Component<AppProps, AppState> {
           <Grid container stackable verticalAlign="middle">
             <Grid.Row>
               <Grid.Column width={16}>
+                <h2>Serverless ToDo App 2</h2>
+                <div>A seriously simple ToDo app</div>
+              </Grid.Column>
+            </Grid.Row>
+            <Grid.Row>
+              <Grid.Column width={16}>
                 <Router history={this.props.history}>
-                  {this.generateMenu()}
+                  {this.props.auth.isAuthenticated() && this.generateMenu()}
 
                   {this.generateCurrentPage()}
                 </Router>
@@ -57,28 +63,16 @@ export default class App extends Component<AppProps, AppState> {
     return (
       <Menu>
         <Menu.Item name="home">
-          <Link to="/">Home</Link>
+          <Link to="/"><Icon name="home" size="large"/></Link>
         </Menu.Item>
 
-        <Menu.Menu position="right">{this.logInLogOutButton()}</Menu.Menu>
+        <Menu.Menu position="right">
+          <Menu.Item>
+            <Button color="red" onClick={this.handleLogout}>Log Out</Button>
+          </Menu.Item>
+        </Menu.Menu>
       </Menu>
     )
-  }
-
-  logInLogOutButton() {
-    if (this.props.auth.isAuthenticated()) {
-      return (
-        <Menu.Item name="logout" onClick={this.handleLogout}>
-          Log Out
-        </Menu.Item>
-      )
-    } else {
-      return (
-        <Menu.Item name="login" onClick={this.handleLogin}>
-          Log In
-        </Menu.Item>
-      )
-    }
   }
 
   generateCurrentPage() {
@@ -95,15 +89,6 @@ export default class App extends Component<AppProps, AppState> {
             return <Todos {...props} auth={this.props.auth} />
           }}
         />
-
-        <Route
-          path="/todos/:todoId/edit"
-          exact
-          render={props => {
-            return <EditTodo {...props} auth={this.props.auth} />
-          }}
-        />
-
         <Route component={NotFound} />
       </Switch>
     )

@@ -10,12 +10,10 @@ enum UploadState {
 }
 
 interface EditTodoProps {
-  match: {
-    params: {
-      todoId: string
-    }
-  }
+  todoId: string
   auth: Auth
+  history: any
+  closeAddImageModal: any
 }
 
 interface EditTodoState {
@@ -51,12 +49,13 @@ export class EditTodo extends React.PureComponent<
       }
 
       this.setUploadState(UploadState.FetchingPresignedUrl)
-      const uploadUrl = await getUploadUrl(this.props.auth.getIdToken(), this.props.match.params.todoId)
+      const uploadUrl = await getUploadUrl(this.props.auth.getIdToken(), this.props.todoId)
 
       this.setUploadState(UploadState.UploadingFile)
       await uploadFile(uploadUrl, this.state.file)
 
-      alert('File was uploaded!')
+      this.props.closeAddImageModal()
+      this.props.history.replace('/')
     } catch (e) {
       alert('Could not upload a file: ' + e.message)
     } finally {
@@ -73,11 +72,9 @@ export class EditTodo extends React.PureComponent<
   render() {
     return (
       <div>
-        <h1>Upload new image</h1>
-
         <Form onSubmit={this.handleSubmit}>
           <Form.Field>
-            <label>File</label>
+            <h3>Add Picture</h3>
             <input
               type="file"
               accept="image/*"
