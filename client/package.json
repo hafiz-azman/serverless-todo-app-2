@@ -1,7 +1,7 @@
 {
-  "name": "typescript-app",
+  "name": "serverless-todo-app-2-client",
   "version": "0.1.0",
-  "private": true,
+  "description": "Serverless ToDo App 2 Client",
   "dependencies": {
     "axios": "^0.18.1",
     "dateformat": "^3.0.3",
