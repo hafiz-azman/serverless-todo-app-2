@@ -17,6 +17,7 @@ To run the project:
 2. `cd` to `<project>/client`
 3. Run `npm i`
 4. Run `npm run start`
+5. Open a browser and navigate to `http://localhost:3000/`
 
 <hr>
 
