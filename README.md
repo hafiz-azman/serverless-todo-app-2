@@ -7,7 +7,7 @@ With this app, user can:
 1. Sign up/Login to the app
 2. Add/update/delete todo items
 3. Attach an image to every todo items
-4. Mark a todo as done
+4. Mark todo items as done
 
 ## Running the project
 
